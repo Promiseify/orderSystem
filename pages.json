@@ -1,0 +1,65 @@
+{
+	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationBarTitleText": "点餐菜单"
+			}
+		},
+		{
+			"path": "pages/profile/profile",
+			"style": {
+				"navigationBarTitleText": "个人中心"
+			}
+		},
+		{
+			"path": "pages/dish-detail/dish-detail",
+			"style": {
+				"navigationBarTitleText": "菜品详情"
+			}
+		},
+		{
+			"path": "pages/dish-manage/dish-manage",
+			"style": {
+				"navigationBarTitleText": "菜品管理"
+			}
+		},
+		{
+			"path": "pages/order-list/order-list",
+			"style": {
+				"navigationBarTitleText": "订单管理"
+			}
+		},
+		{
+			"path": "pages/my-orders/my-orders",
+			"style": {
+				"navigationBarTitleText": "我的订单"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "点餐系统",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	"tabBar": {
+		"color": "#7A7E83",
+		"selectedColor": "#f8785f",
+		"backgroundColor": "#FFFFFF",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"text": "点餐",
+				"iconPath": "static/tabbar/home.png",
+				"selectedIconPath": "static/tabbar/home_active.png"
+			},
+			{
+				"pagePath": "pages/profile/profile",
+				"text": "我的",
+				"iconPath": "static/tabbar/user.png",
+				"selectedIconPath": "static/tabbar/user_active.png"
+			}
+		]
+	}
+}
