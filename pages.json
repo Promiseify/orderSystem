@@ -1,5 +1,5 @@
 {
-	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+	"pages": [
 		{
 			"path": "pages/index/index",
 			"style": {
@@ -35,6 +35,12 @@
 			"style": {
 				"navigationBarTitleText": "我的订单"
 			}
+		},
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "登录"
+			}
 		}
 	],
 	"globalStyle": {
@@ -51,14 +57,14 @@
 			{
 				"pagePath": "pages/index/index",
 				"text": "点餐",
-				"iconPath": "static/tabbar/home.png",
-				"selectedIconPath": "static/tabbar/home_active.png"
+				"iconPath": "static/tabBar/home.png",
+				"selectedIconPath": "static/tabBar/home_active.png"
 			},
 			{
 				"pagePath": "pages/profile/profile",
 				"text": "我的",
-				"iconPath": "static/tabbar/user.png",
-				"selectedIconPath": "static/tabbar/user_active.png"
+				"iconPath": "static/tabBar/user.png",
+				"selectedIconPath": "static/tabBar/user_active.png"
 			}
 		]
 	}

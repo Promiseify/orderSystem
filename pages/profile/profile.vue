@@ -1,42 +1,55 @@
 <template>
 	<view class="container">
 		<view class="header">
-			<view class="user-info">
-				<image class="avatar" :src="userInfo.avatar" mode="aspectFill"></image>
+			<view class="user-info" v-if="currentUser">
+				<image class="avatar" :src="currentUser.avatar" mode="aspectFill"></image>
 				<view class="user-detail">
-					<text class="nickname">{{userInfo.nickname}}</text>
-					<text class="user-type">{{isAdmin ? '管理员' : '普通用户'}}</text>
+					<text class="nickname">{{ currentUser.nickname }}</text>
+					<text class="user-type">{{ roleLabel }}</text>
 				</view>
 			</view>
+			<view class="guest-box" v-else>
+				<text class="guest-title">当前未登录</text>
+				<text class="guest-desc">登录后可进行点餐、订单处理和菜品管理演示</text>
+				<button class="login-btn" @tap="goToLogin">去登录</button>
+			</view>
 		</view>
-		
-		<view class="menu-list">
-			<view class="menu-item" @tap="goToOrders">
+
+		<view class="menu-list" v-if="currentUser">
+			<view class="menu-item" v-if="userStore.isCustomer()" @tap="goToMyOrders">
 				<view class="menu-item-left">
 					<image class="menu-icon" src="/static/icons/order.png"></image>
 					<text>我的订单</text>
 				</view>
 				<text class="arrow">></text>
 			</view>
-			
-			<view class="menu-item" @tap="goToAddress">
+
+			<view class="menu-item" v-if="userStore.canManageOrders()" @tap="goToOrderManage">
 				<view class="menu-item-left">
-					<image class="menu-icon" src="/static/icons/address.png"></image>
-					<text>收货地址</text>
+					<image class="menu-icon" src="/static/icons/order.png"></image>
+					<text>订单管理</text>
 				</view>
 				<text class="arrow">></text>
 			</view>
-			
-			<view class="menu-item" v-if="isAdmin" @tap="goToDishManage">
+
+			<view class="menu-item" v-if="userStore.canManageDishes()" @tap="goToDishManage">
 				<view class="menu-item-left">
 					<image class="menu-icon" src="/static/icons/manage.png"></image>
 					<text>菜品管理</text>
 				</view>
 				<text class="arrow">></text>
 			</view>
+
+			<view class="menu-item" @tap="goToLogin">
+				<view class="menu-item-left">
+					<image class="menu-icon" src="/static/icons/address.png"></image>
+					<text>切换账号</text>
+				</view>
+				<text class="arrow">></text>
+			</view>
 		</view>
-		
-		<button class="logout-btn" @tap="logout">退出登录</button>
+
+		<button class="logout-btn" v-if="currentUser" @tap="logout">退出登录</button>
 	</view>
 </template>
 
@@ -46,36 +59,31 @@ import userStore from '@/store/user.js'
 export default {
 	data() {
 		return {
-			userInfo: userStore.state.currentUser || {}
+			userStore
 		}
 	},
 	computed: {
-		isAdmin() {
-			return this.userInfo.isAdmin
-		}
-	},
-	onShow() {
-		// 如果未登录，模拟登录为普通用户
-		if (!userStore.state.currentUser) {
-			this.userInfo = userStore.login('user')
+		currentUser() {
+			return userStore.getCurrentUser()
+		},
+		roleLabel() {
+			return this.currentUser ? userStore.getCurrentRoleLabel() : ''
 		}
 	},
 	methods: {
-		goToOrders() {
-			if (this.isAdmin) {
-				uni.navigateTo({
-					url: '/pages/order-list/order-list'
-				})
-			} else {
-				uni.navigateTo({
-					url: '/pages/my-orders/my-orders'
-				})
-			}
+		goToLogin() {
+			uni.navigateTo({
+				url: '/pages/login/login'
+			})
 		},
-		goToAddress() {
-			uni.showToast({
-				title: '功能开发中',
-				icon: 'none'
+		goToMyOrders() {
+			uni.navigateTo({
+				url: '/pages/my-orders/my-orders'
+			})
+		},
+		goToOrderManage() {
+			uni.navigateTo({
+				url: '/pages/order-list/order-list'
 			})
 		},
 		goToDishManage() {
@@ -87,16 +95,21 @@ export default {
 			uni.showModal({
 				title: '提示',
 				content: '确定要退出登录吗？',
-				success: (res) => {
-					if (res.confirm) {
-						userStore.logout()
-						// 重新登录为另一个用户（这里仅作演示）
-						this.userInfo = userStore.login(this.isAdmin ? 'user' : 'admin')
-						uni.showToast({
-							title: '切换用户成功',
-							icon: 'success'
-						})
+				success: res => {
+					if (!res.confirm) {
+						return
 					}
+
+					userStore.logout()
+					uni.showToast({
+						title: '已退出登录',
+						icon: 'success'
+					})
+					setTimeout(() => {
+						uni.navigateTo({
+							url: '/pages/login/login'
+						})
+					}, 600)
 				}
 			})
 		}
@@ -127,7 +140,7 @@ export default {
 	width: 120rpx;
 	height: 120rpx;
 	border-radius: 50%;
-	border: 4rpx solid rgba(255,255,255,0.3);
+	border: 4rpx solid rgba(255, 255, 255, 0.3);
 }
 
 .user-detail {
@@ -143,9 +156,37 @@ export default {
 
 .user-type {
 	font-size: 24rpx;
-	color: rgba(255,255,255,0.8);
+	color: rgba(255, 255, 255, 0.8);
 	margin-top: 10rpx;
 	display: block;
+}
+
+.guest-box {
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+}
+
+.guest-title {
+	font-size: 38rpx;
+	font-weight: bold;
+	color: #fff;
+}
+
+.guest-desc {
+	font-size: 24rpx;
+	color: rgba(255, 255, 255, 0.85);
+	margin-top: 16rpx;
+	line-height: 1.6;
+}
+
+.login-btn {
+	margin: 30rpx 0 0;
+	background-color: #fff;
+	color: #d68b00;
+	border-radius: 40rpx;
+	padding: 0 40rpx;
+	font-size: 28rpx;
 }
 
 .menu-list {
@@ -163,6 +204,10 @@ export default {
 	border-bottom: 1rpx solid #eee;
 }
 
+.menu-item:last-child {
+	border-bottom: none;
+}
+
 .menu-item-left {
 	display: flex;
 	align-items: center;
@@ -172,7 +217,6 @@ export default {
 	width: 40rpx;
 	height: 40rpx;
 	margin-right: 20rpx;
-	color: #f6c33d;
 }
 
 .arrow {
@@ -189,4 +233,4 @@ export default {
 	height: 90rpx;
 	line-height: 90rpx;
 }
-</style> 
+</style>

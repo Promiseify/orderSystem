@@ -1,75 +1,111 @@
 <template>
-	<view class="container">
+	<view class="container" v-if="dish">
 		<swiper class="swiper" :indicator-dots="true" :autoplay="true" :interval="3000" :duration="1000">
-			<swiper-item v-for="(img, index) in dish.images" :key="index">
+			<swiper-item v-for="(img, index) in dishImages" :key="index">
 				<image :src="img" mode="aspectFill" class="dish-image"></image>
 			</swiper-item>
 		</swiper>
-		
+
 		<view class="info-section">
-			<view class="dish-name">{{dish.name}}</view>
-			<view class="dish-price">¥{{dish.price}}</view>
-			<view class="dish-sales">月售 {{dish.sales}} 份</view>
+			<view class="name-row">
+				<view class="dish-name">{{ dish.name }}</view>
+				<text class="dish-status off" v-if="isOffShelf">已下架</text>
+				<text class="dish-status on" v-else>上架中</text>
+			</view>
+			<view class="dish-price">¥{{ dish.price }}</view>
+			<view class="dish-sales">月售 {{ dish.sales || 0 }} 份</view>
 		</view>
-		
+
 		<view class="desc-section">
 			<view class="section-title">商品描述</view>
-			<view class="desc-content">{{dish.description}}</view>
+			<view class="desc-content">{{ dish.description || '暂无描述' }}</view>
 		</view>
-		
-		<!-- 底部操作栏 -->
+
 		<view class="bottom-bar">
 			<view class="price-section">
 				<text class="price-symbol">¥</text>
-				<text class="price-value">{{dish.price}}</text>
+				<text class="price-value">{{ dish.price }}</text>
 			</view>
-			<button class="add-to-cart-btn" @tap="addToCart">加入购物车</button>
+			<button class="add-to-cart-btn" :disabled="!canAddToCart" :class="{ disabled: !canAddToCart }" @tap="addToCart">
+				{{ canAddToCart ? '加入购物车' : '已下架' }}
+			</button>
 		</view>
+	</view>
+
+	<view class="empty-container" v-else>
+		<text class="empty-text">菜品不存在或已被移除</text>
 	</view>
 </template>
 
 <script>
 import userStore from '@/store/user.js'
 import cartStore from '@/store/cart.js'
+import dishStore from '@/store/dish.js'
+
+function goToLogin(redirectUrl = '') {
+	const encodedRedirect = redirectUrl ? `?redirect=${encodeURIComponent(redirectUrl)}` : ''
+	uni.navigateTo({
+		url: `/pages/login/login${encodedRedirect}`
+	})
+}
+
+function requireLogin(redirectUrl = '') {
+	uni.showToast({
+		title: '请先登录',
+		icon: 'none'
+	})
+	setTimeout(() => {
+		goToLogin(redirectUrl)
+	}, 600)
+}
 
 export default {
 	data() {
 		return {
-			dish: {
-				id: 1,
-				name: '宫保鸡丁',
-				price: 28,
-				sales: 999,
-				images: ['/static/product/goods1.png', '/static/product/goods2.png'],
-				description: '宫保鸡丁，是一道闻名中外的特色传统名菜。鸡丁、花生、黄瓜丁炒制，红而不辣、辣而不猛、香辣适中、鲜嫩可口。'
-			}
+			dishId: '',
+			dish: null
+		}
+	},
+	computed: {
+		dishImages() {
+			return this.dish?.images || []
+		},
+		isOffShelf() {
+			return !!this.dish && !dishStore.isOnShelf(this.dish)
+		},
+		canAddToCart() {
+			return !!this.dish && dishStore.isOnShelf(this.dish)
 		}
 	},
 	onLoad(options) {
-		// 实际应用中，这里需要根据传入的id获取菜品详情
-		const id = options.id
-		// this.getDishDetail(id)
+		this.dishId = options.id || ''
+		this.refreshDish()
+	},
+	onShow() {
+		this.refreshDish()
 	},
 	methods: {
+		refreshDish() {
+			if (!this.dishId) {
+				this.dish = null
+				return
+			}
+
+			this.dish = dishStore.getDishById(this.dishId)
+		},
 		addToCart() {
-			if (!userStore.state.currentUser) {
+			if (!this.canAddToCart) {
 				uni.showToast({
-					title: '请先登录',
+					title: '该菜品已下架',
 					icon: 'none'
 				})
 				return
 			}
-			
-			cartStore.addItem(this.dish)
-			uni.showToast({
-				title: '已加入购物车',
-				icon: 'success'
-			})
-			
-			// 可选：返回上一页
-			setTimeout(() => {
-				uni.navigateBack()
-			}, 1500)
+
+			const added = cartStore.tryAddItem(this.dish)
+			if (!added && !userStore.isLoggedIn()) {
+				requireLogin(`/pages/dish-detail/dish-detail?id=${this.dishId}`)
+			}
 		}
 	}
 }
@@ -95,9 +131,33 @@ export default {
 	background-color: #fff;
 }
 
+.name-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 20rpx;
+}
+
 .dish-name {
 	font-size: 36rpx;
 	font-weight: bold;
+	flex: 1;
+}
+
+.dish-status {
+	font-size: 24rpx;
+	padding: 8rpx 18rpx;
+	border-radius: 999rpx;
+}
+
+.dish-status.on {
+	color: #19be6b;
+	background-color: rgba(25, 190, 107, 0.12);
+}
+
+.dish-status.off {
+	color: #ff5500;
+	background-color: rgba(255, 85, 0, 0.12);
 }
 
 .dish-price {
@@ -140,7 +200,7 @@ export default {
 	display: flex;
 	align-items: center;
 	padding: 0 30rpx;
-	box-shadow: 0 -2rpx 10rpx rgba(0,0,0,0.1);
+	box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.1);
 }
 
 .price-section {
@@ -167,4 +227,23 @@ export default {
 	border-radius: 40rpx;
 	font-size: 28rpx;
 }
-</style> 
+
+.add-to-cart-btn.disabled {
+	background-color: #d8d8d8;
+	color: #fff;
+}
+
+.empty-container {
+	min-height: 100vh;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 40rpx;
+	background-color: #f8f8f8;
+}
+
+.empty-text {
+	font-size: 28rpx;
+	color: #999;
+}
+</style>
