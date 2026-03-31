@@ -19,12 +19,29 @@ export const ORDER_STATUS = {
 	COMPLETED: 'completed'
 }
 
-const statusLabelMap = {
-	[ORDER_STATUS.PENDING]: '待接单',
-	[ORDER_STATUS.ACCEPTED]: '已接单',
-	[ORDER_STATUS.SERVING]: '上菜中',
-	[ORDER_STATUS.COMPLETED]: '已完成'
+const orderStatusMetaMap = {
+	[ORDER_STATUS.PENDING]: {
+		label: '待接单',
+		description: '订单已提交成功，等待商家确认接单。'
+	},
+	[ORDER_STATUS.ACCEPTED]: {
+		label: '已接单',
+		description: '商家已接单，后厨正在准备菜品。'
+	},
+	[ORDER_STATUS.SERVING]: {
+		label: '上菜中',
+		description: '部分菜品已经做好，订单正在陆续上菜。'
+	},
+	[ORDER_STATUS.COMPLETED]: {
+		label: '已完成',
+		description: '订单中的菜品已经全部上齐，请及时取餐。'
+	}
 }
+
+const orderStepDefinitions = Object.entries(orderStatusMetaMap).map(([status, meta]) => ({
+	status,
+	...meta
+}))
 
 function safeGetStorage(key) {
 	if (typeof uni === 'undefined' || typeof uni.getStorageSync !== 'function') {
@@ -98,6 +115,10 @@ function cloneOrder(order) {
 	}
 }
 
+function cloneStep(step) {
+	return { ...step }
+}
+
 function createLog(type, operator, content) {
 	return normalizeLog({
 		type,
@@ -117,6 +138,13 @@ function loadOrders() {
 	return stored.map(order => normalizeOrder(order))
 }
 
+function getStatusMeta(status) {
+	return orderStatusMetaMap[status] || {
+		label: '未知状态',
+		description: '当前订单状态暂无说明。'
+	}
+}
+
 const orderStore = {
 	state: {
 		orders: []
@@ -133,6 +161,24 @@ const orderStore = {
 	appendLog(order, type, operator, content) {
 		order.logs = Array.isArray(order.logs) ? order.logs : []
 		order.logs.unshift(createLog(type, operator, content))
+	},
+
+	validateCartItems(cartItems, options = {}) {
+		const getDishById = typeof options.getDishById === 'function' ? options.getDishById : null
+		const isOnShelf = typeof options.isOnShelf === 'function' ? options.isOnShelf : null
+		if (!getDishById || !isOnShelf || !Array.isArray(cartItems)) {
+			return []
+		}
+
+		const invalidNames = cartItems.reduce((names, item) => {
+			const latestDish = getDishById(item?.dish?.id)
+			if (!latestDish || !isOnShelf(latestDish)) {
+				names.push(item?.dish?.name || '未知菜品')
+			}
+			return names
+		}, [])
+
+		return [...new Set(invalidNames)]
 	},
 
 	createOrder(cartItems, user) {
@@ -178,7 +224,25 @@ const orderStore = {
 	},
 
 	getStatusLabel(status) {
-		return statusLabelMap[status] || '未知状态'
+		return getStatusMeta(status).label
+	},
+
+	getStatusDescription(status) {
+		return getStatusMeta(status).description
+	},
+
+	getStepDefinitions() {
+		return orderStepDefinitions.map(cloneStep)
+	},
+
+	getOrderSteps(order) {
+		const currentIndex = orderStepDefinitions.findIndex(step => step.status === order?.status)
+		return orderStepDefinitions.map((step, index) => ({
+			...step,
+			completed: currentIndex > index,
+			active: currentIndex === index,
+			pending: currentIndex < index
+		}))
 	},
 
 	canAccept(order) {

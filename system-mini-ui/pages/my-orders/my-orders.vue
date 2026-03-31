@@ -15,13 +15,28 @@
 				<text :class="['order-status', order.status]">{{ getStatusLabel(order.status) }}</text>
 			</view>
 
-			<view class="progress-box">
+				<view class="progress-box">
 				<view>
 					<text class="progress-title">订单进度</text>
 					<text class="progress-text">{{ order.progress.text }}</text>
 					<text class="progress-desc">{{ order.progress.description }}</text>
 				</view>
 				<text class="progress-percent">{{ order.progress.percent }}%</text>
+			</view>
+
+			<view class="stepper-box" v-if="order.steps && order.steps.length">
+				<view class="stepper-list">
+					<view
+						v-for="(step, index) in order.steps"
+						:key="step.status"
+						:class="['stepper-item', { active: step.active, completed: step.completed, selected: getSelectedStepStatus(order.id) === step.status }]"
+						@tap="selectStep(order.id, step.status)"
+					>
+						<view :class="['stepper-dot', { active: step.active, completed: step.completed }]">{{ index + 1 }}</view>
+						<text class="stepper-label">{{ step.label }}</text>
+					</view>
+				</view>
+				<text class="stepper-description">{{ getSelectedStepDescription(order) }}</text>
 			</view>
 
 			<view class="recent-log" v-if="order.progress.latestLog">
@@ -92,14 +107,16 @@ export default {
 	data() {
 		return {
 			orders: [],
-			expandedOrderIds: []
+			expandedOrderIds: [],
+			selectedStepMap: {}
 		}
 	},
 	computed: {
 		ordersWithProgress() {
 			return this.orders.map(order => ({
 				...order,
-				progress: orderStore.getOrderProgress(order)
+				progress: orderStore.getOrderProgress(order),
+				steps: orderStore.getOrderSteps(order)
 			}))
 		}
 	},
@@ -113,8 +130,20 @@ export default {
 	},
 	methods: {
 		refreshOrders() {
+			const previousStatusMap = this.orders.reduce((map, order) => {
+				map[order.id] = order.status
+				return map
+			}, {})
 			this.orders = orderStore.getOrdersByUser(userStore.getCurrentUserId())
 			this.expandedOrderIds = this.expandedOrderIds.filter(id => this.orders.some(order => order.id === id))
+			const nextSelectedStepMap = {}
+			this.orders.forEach(order => {
+				const previousStatus = previousStatusMap[order.id]
+				nextSelectedStepMap[order.id] = previousStatus && previousStatus !== order.status
+					? order.status
+					: (this.selectedStepMap[order.id] || order.status)
+			})
+			this.selectedStepMap = nextSelectedStepMap
 		},
 		getStatusLabel(status) {
 			return orderStore.getStatusLabel(status)
@@ -124,6 +153,20 @@ export default {
 				return ''
 			}
 			return `${log.time} · ${log.content}`
+		},
+		getSelectedStepStatus(orderId) {
+			return this.selectedStepMap[orderId] || ''
+		},
+		selectStep(orderId, status) {
+			this.selectedStepMap = {
+				...this.selectedStepMap,
+				[orderId]: status
+			}
+		},
+		getSelectedStepDescription(order) {
+			const selectedStatus = this.getSelectedStepStatus(order.id) || order.status
+			const targetStep = (order.steps || []).find(step => step.status === selectedStatus)
+			return targetStep?.description || order.progress.description
 		},
 		isExpanded(orderId) {
 			return this.expandedOrderIds.includes(orderId)
@@ -266,6 +309,67 @@ export default {
 	font-size: 36rpx;
 	font-weight: bold;
 	color: #d68b00;
+}
+
+.stepper-box {
+	margin-top: 18rpx;
+	padding: 20rpx 24rpx;
+	background-color: #f7f8fa;
+	border-radius: 12rpx;
+}
+
+.stepper-list {
+	display: flex;
+	justify-content: space-between;
+	gap: 12rpx;
+	flex-wrap: wrap;
+}
+
+.stepper-item {
+	flex: 1;
+	min-width: 130rpx;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	padding: 12rpx 8rpx;
+	border-radius: 12rpx;
+	background-color: #fff;
+}
+
+.stepper-item.selected {
+	box-shadow: 0 0 0 2rpx rgba(246, 195, 61, 0.35) inset;
+}
+
+.stepper-dot {
+	width: 44rpx;
+	height: 44rpx;
+	line-height: 44rpx;
+	text-align: center;
+	border-radius: 50%;
+	background-color: #e5e5e5;
+	color: #999;
+	font-size: 24rpx;
+	font-weight: bold;
+}
+
+.stepper-dot.active,
+.stepper-dot.completed {
+	background-color: #f6c33d;
+	color: #fff;
+}
+
+.stepper-label {
+	font-size: 24rpx;
+	color: #333;
+	margin-top: 10rpx;
+}
+
+.stepper-description {
+	font-size: 24rpx;
+	color: #666;
+	line-height: 1.6;
+	margin-top: 16rpx;
+	display: block;
 }
 
 .recent-log {

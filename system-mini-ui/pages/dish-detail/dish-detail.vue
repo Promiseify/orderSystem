@@ -38,7 +38,6 @@
 </template>
 
 <script>
-import userStore from '@/store/user.js'
 import cartStore from '@/store/cart.js'
 import dishStore from '@/store/dish.js'
 
@@ -102,10 +101,10 @@ export default {
 				return
 			}
 
-			const added = cartStore.tryAddItem(this.dish)
-			if (!added && !userStore.isLoggedIn()) {
-				requireLogin(`/pages/dish-detail/dish-detail?id=${this.dishId}`)
-			}
+			cartStore.tryAddItemForCustomer(this.dish, {
+				redirectUrl: `/pages/dish-detail/dish-detail?id=${this.dishId}`,
+				requireLogin
+			})
 		}
 	}
 }

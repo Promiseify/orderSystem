@@ -167,6 +167,36 @@ const cartStore = {
 		return true
 	},
 
+	tryAddItemForCustomer(dish, options = {}) {
+		const redirectUrl = options.redirectUrl || ''
+		const requireLogin = typeof options.requireLogin === 'function' ? options.requireLogin : null
+		if (!userStore.isLoggedIn()) {
+			if (requireLogin) {
+				requireLogin(redirectUrl)
+			} else {
+				uni.showToast({
+					title: '请先登录',
+					icon: 'none'
+				})
+			}
+			return false
+		}
+
+		if (!userStore.isCustomer()) {
+			uni.showToast({
+				title: '当前身份不可点餐',
+				icon: 'none'
+			})
+			return false
+		}
+
+		return this.tryAddItem(dish)
+	},
+
+	canSubmitByCurrentUser() {
+		return userStore.isLoggedIn() && userStore.isCustomer()
+	},
+
 	removeItem(dishId) {
 		this.ensureCurrentCartLoaded()
 		const index = this.state.items.findIndex(item => String(item.dish.id) === String(dishId))

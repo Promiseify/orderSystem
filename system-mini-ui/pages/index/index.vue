@@ -158,15 +158,29 @@ export default {
 			})
 		},
 		addToCart(dish) {
-			const added = cartStore.tryAddItem(dish)
-			if (!added && !userStore.isLoggedIn()) {
-				requireLogin('/pages/index/index')
-			}
+			cartStore.tryAddItemForCustomer(dish, {
+				redirectUrl: '/pages/index/index',
+				requireLogin
+			})
+		},
+		validateCartItems(cartItems) {
+			return orderStore.validateCartItems(cartItems, {
+				getDishById: dishStore.getDishById.bind(dishStore),
+				isOnShelf: dishStore.isOnShelf.bind(dishStore)
+			})
 		},
 		submitOrder() {
 			const currentUser = userStore.getCurrentUser()
 			if (!currentUser) {
 				requireLogin('/pages/my-orders/my-orders')
+				return
+			}
+
+			if (!userStore.isCustomer()) {
+				uni.showToast({
+					title: '仅顾客可下单',
+					icon: 'none'
+				})
 				return
 			}
 
@@ -178,7 +192,18 @@ export default {
 				return
 			}
 
-			const order = orderStore.createOrder(cartStore.getItems(), currentUser)
+			const cartItems = cartStore.getItems()
+			const invalidNames = this.validateCartItems(cartItems)
+			if (invalidNames.length) {
+				uni.showModal({
+					title: '部分菜品不可下单',
+					content: `请先调整购物车：${invalidNames.join('、')}`,
+					showCancel: false
+				})
+				return
+			}
+
+			const order = orderStore.createOrder(cartItems, currentUser)
 			if (!order) {
 				uni.showToast({
 					title: '下单失败',
@@ -283,7 +308,7 @@ export default {
 .dish-list {
 	flex: 1;
 	padding: 30rpx;
-	padding-bottom: calc(100rpx + env(safe-area-inset-bottom));
+	padding-bottom: calc(220rpx + env(safe-area-inset-bottom));
 }
 
 .dish-item {
@@ -363,7 +388,7 @@ export default {
 
 .cart-bar {
 	position: fixed;
-	bottom: 0;
+	bottom: calc(100rpx + env(safe-area-inset-bottom));
 	left: 0;
 	right: 0;
 	height: 100rpx;
@@ -371,51 +396,34 @@ export default {
 	display: flex;
 	align-items: center;
 	padding: 0 30rpx;
+	box-sizing: border-box;
 	box-shadow: 0 -2rpx 10rpx rgba(0, 0, 0, 0.1);
 	z-index: 100;
-	padding-bottom: env(safe-area-inset-bottom);
 }
 
 .cart-preview {
 	flex: 1;
+	min-width: 0;
 	display: flex;
 	align-items: center;
-	padding: 20rpx;
+	padding: 20rpx 0;
 }
 
-.cart-icon {
-	position: relative;
-	margin-right: 20rpx;
-	width: 60rpx;
-	height: 60rpx;
-	border-radius: 50%;
-	background-color: #f6c33d;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-}
-
-.cart-icon-text {
-	color: #fff;
-	font-size: 28rpx;
-	font-weight: bold;
-}
-
-.cart-badge {
-	position: absolute;
-	top: -10rpx;
-	right: -10rpx;
-	background-color: #ff5500;
-	color: #fff;
-	font-size: 24rpx;
-	padding: 4rpx 12rpx;
-	border-radius: 20rpx;
-	min-width: 32rpx;
-	text-align: center;
+.submit-btn {
+	flex-shrink: 0;
 }
 
 .cart-info {
 	flex: 1;
+	min-width: 0;
+}
+
+.cart-count,
+.cart-total {
+	display: block;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .cart-count {
@@ -449,6 +457,38 @@ export default {
 	z-index: 999;
 }
 
+.cart-icon {
+	position: relative;
+	margin-right: 20rpx;
+	width: 60rpx;
+	height: 60rpx;
+	border-radius: 50%;
+	background-color: #f6c33d;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.cart-icon-text {
+	color: #fff;
+	font-size: 28rpx;
+	font-weight: bold;
+}
+
+.cart-badge {
+	position: absolute;
+	top: -10rpx;
+	right: -10rpx;
+	background-color: #ff5500;
+	color: #fff;
+	font-size: 24rpx;
+	padding: 4rpx 12rpx;
+	border-radius: 20rpx;
+	min-width: 32rpx;
+	text-align: center;
+}
+
+
 .cart-mask {
 	position: absolute;
 	top: 0;
@@ -462,7 +502,7 @@ export default {
 	position: absolute;
 	left: 0;
 	right: 0;
-	bottom: 0;
+	bottom: calc(100rpx + env(safe-area-inset-bottom));
 	background-color: #fff;
 	border-radius: 24rpx 24rpx 0 0;
 	padding-bottom: env(safe-area-inset-bottom);
